@@ -1,0 +1,19 @@
+{
+    "name": "nitrogen",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "dev": "webpack --mode development --watch",
+        "build": "webpack --mode production",
+        "start": "node dist/nitro.js"
+    },
+    "author": "Marc Sportiello",
+    "license": "ISC",
+    "devDependencies": {
+        "ts-loader": "^9.5.1",
+        "typescript": "^5.4.5",
+        "webpack": "^5.91.0",
+        "webpack-cli": "^5.1.4"
+    }
+}
