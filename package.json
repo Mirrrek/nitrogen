@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "webpack --mode development --watch",
         "build": "webpack --mode production",
-        "start": "node dist/nitro.js"
+        "start": "node dist/nitro.js test/input.nitro"
     },
     "author": "Marc Sportiello",
     "license": "ISC",

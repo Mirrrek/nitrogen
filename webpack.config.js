@@ -7,6 +7,7 @@ module.exports = (env, argv) => {
     return {
         mode: isDevelopment ? 'development' : 'production',
         devtool: isDevelopment ? 'inline-source-map' : undefined,
+        target: 'node',
         entry: {
             main: './src/index.ts'
         },
@@ -39,6 +40,9 @@ module.exports = (env, argv) => {
                     });
                 });
             }
-        }]
+        }],
+        watchOptions: {
+            ignored: /node_modules/
+        }
     }
 }

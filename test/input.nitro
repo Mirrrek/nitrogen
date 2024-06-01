@@ -1,0 +1,5 @@
+const String x = 'Hello, world!';           // Our first comment!
+f8 y = /* Another comment! */ 42.6;
+
+u32 z;
+z = 0x12345678;     // Hexadecimal literal
