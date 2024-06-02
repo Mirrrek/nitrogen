@@ -1,5 +1,5 @@
 const String x = 'Hello, world!';           // Our first comment!
-f8 y = /* Another comment! */ 42.6;
+f8 y = 42.6 + 5 * 2 - 3;
 
 u32 z;
-z = 0x12345678;     // Hexadecimal literal
+z = (0x1234 + 4) * 2;

@@ -1,4 +1,5 @@
 import tokenize from '@/stages/tokenizer';
+import parse from '@/stages/parser';
 import { InputError } from '@/errors';
 import log from '@/log';
 import { existsSync, statSync, readFileSync } from 'fs';
@@ -27,7 +28,11 @@ function main() {
 
     const tokens = tokenize(file, input);
 
-    console.log(tokens);
+    console.log(JSON.stringify(tokens));
+
+    const statements = parse(tokens);
+
+    console.log(JSON.stringify(statements));
 }
 
 process.on('uncaughtException', (error) => {
