@@ -26,7 +26,9 @@ export type AssignmentStatement = {
     location: Location;
 }
 
-export type Statement = DeclarationStatement | DeclarationWithAssignmentStatement | AssignmentStatement;
+export type Statement = DeclarationStatement |
+    DeclarationWithAssignmentStatement |
+    AssignmentStatement;
 
 export type IntegerLiteralPrimitiveExpression = {
     type: 'integer-literal';
@@ -58,7 +60,11 @@ export type SubExpressionPrimitiveExpression = {
     location: Location;
 }
 
-export type PrimitiveExpression = IntegerLiteralPrimitiveExpression | FloatLiteralPrimitiveExpression | StringLiteralPrimitiveExpression | VariablePrimitiveExpression | SubExpressionPrimitiveExpression;
+export type PrimitiveExpression = IntegerLiteralPrimitiveExpression |
+    FloatLiteralPrimitiveExpression |
+    StringLiteralPrimitiveExpression |
+    VariablePrimitiveExpression |
+    SubExpressionPrimitiveExpression;
 
 export type AdditionBinaryExpression = {
     type: 'addition';
@@ -88,7 +94,34 @@ export type DivisionBinaryExpression = {
     location: Location;
 }
 
-export type BinaryExpression = AdditionBinaryExpression | SubtractionBinaryExpression | MultiplicationBinaryExpression | DivisionBinaryExpression;
+export type ModuloBinaryExpression = {
+    type: 'modulo';
+    left: Expression;
+    right: Expression;
+    location: Location;
+}
+
+export type BitwiseOrBinaryExpression = {
+    type: 'bitwise-or';
+    left: Expression;
+    right: Expression;
+    location: Location;
+}
+
+export type BitwiseAndBinaryExpression = {
+    type: 'bitwise-and';
+    left: Expression;
+    right: Expression;
+    location: Location;
+}
+
+export type BinaryExpression = AdditionBinaryExpression |
+    SubtractionBinaryExpression |
+    MultiplicationBinaryExpression |
+    DivisionBinaryExpression |
+    ModuloBinaryExpression |
+    BitwiseOrBinaryExpression |
+    BitwiseAndBinaryExpression;
 
 export type Expression = PrimitiveExpression | BinaryExpression;
 
@@ -96,21 +129,30 @@ const binaryOperators: { [K in BinaryExpression['type']]: Extract<Token, { type:
     'addition': '+',
     'subtraction': '-',
     'multiplication': '*',
-    'division': '/'
+    'division': '/',
+    'modulo': '%',
+    'bitwise-or': '|',
+    'bitwise-and': '&'
 }
 
 const binaryOperatorPrecedence: { [K in BinaryExpression['type']]: number } = {
-    'addition': 1,
-    'subtraction': 1,
-    'multiplication': 2,
-    'division': 2
+    'bitwise-or': 0,
+    'bitwise-and': 1,
+    'addition': 2,
+    'subtraction': 2,
+    'multiplication': 3,
+    'division': 3,
+    'modulo': 3
 }
 
 const binaryOperatorAssociativity: { [K in BinaryExpression['type']]: 'left' | 'right' } = {
     'addition': 'left',
     'subtraction': 'left',
     'multiplication': 'left',
-    'division': 'left'
+    'division': 'left',
+    'modulo': 'left',
+    'bitwise-or': 'left',
+    'bitwise-and': 'left'
 }
 
 export default function parse(tokens: Token[]): Statement[] {
