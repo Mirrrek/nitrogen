@@ -250,14 +250,18 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
     // Parse integer literal
     {
         const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'symbol', value: '-', optional: true },
             { type: 'integer-literal' }
         ]);
         if (match !== null) {
-            const [integerLiteralToken] = match;
+            const [
+                minusToken,
+                integerLiteralToken
+            ] = match;
 
             return [{
                 type: 'integer-literal',
-                value: integerLiteralToken.value,
+                value: integerLiteralToken.value * (minusToken === null ? 1 : -1),
                 location: integerLiteralToken.location
             }, tokenCount];
         }
@@ -266,14 +270,18 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
     // Parse float literal
     {
         const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'symbol', value: '-', optional: true },
             { type: 'float-literal' }
         ]);
         if (match !== null) {
-            const [floatLiteralToken] = match;
+            const [
+                minusToken,
+                floatLiteralToken
+            ] = match;
 
             return [{
                 type: 'float-literal',
-                value: floatLiteralToken.value,
+                value: floatLiteralToken.value * (minusToken === null ? 1 : -1),
                 location: floatLiteralToken.location
             }, tokenCount];
         }
@@ -285,7 +293,9 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
             { type: 'string-literal' }
         ]);
         if (match !== null) {
-            const [stringLiteralToken] = match;
+            const [
+                stringLiteralToken
+            ] = match;
 
             return [{
                 type: 'string-literal',
@@ -301,7 +311,9 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
             { type: 'identifier' }
         ]);
         if (match !== null) {
-            const [identifierToken] = match;
+            const [
+                identifierToken
+            ] = match;
 
             return [{
                 type: 'variable',
