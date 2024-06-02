@@ -63,6 +63,8 @@ export type StringLiteralToken = {
 
 export type Token = KeywordToken | SymbolToken | IdentifierToken | IntegerLiteralToken | FloatLiteralToken | StringLiteralToken;
 
+const allowedIdentifierASCIICharacters = /[a-zA-Z0-9_]/;
+
 export default function tokenize(file: string, input: string): Token[] {
     const tokens: Token[] = [];
 
@@ -194,7 +196,7 @@ export default function tokenize(file: string, input: string): Token[] {
         // Match keywords and identifiers
         {
             let buffer = '';
-            while (input.length > 0 && ![' ', '\t', '\r', '\n', '/', ...symbols, '\'', '"'].some((i) => input.startsWith(i)) && !/^[\x00-\x1F]/.test(input)) {
+            while (input.length > 0 && ![' ', '\t', '\r', '\n', '/', ...symbols, '\'', '"'].some((i) => input.startsWith(i)) && !/^[\x00-\x1F]/.test(input) && (input.charCodeAt(0) >= 0x80 || allowedIdentifierASCIICharacters.test(input[0]))) {
                 buffer += input[0];
                 input = input.slice(1);
             }

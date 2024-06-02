@@ -7,3 +7,5 @@ z = (0x1234 & 0xff) % 2;
 
 bool a = z == 0;
 bool b = y >= z * 1.2;
+
+String řeřicha = 'Příliš žluťoučký kůň úpěl ďábelské ódy. 😎';
