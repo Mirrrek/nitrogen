@@ -4,6 +4,15 @@ import { InputError } from '@/errors';
 import log from '@/log';
 import { existsSync, statSync, readFileSync } from 'fs';
 
+process.on('uncaughtException', (error) => {
+    if (error instanceof InputError) {
+        log('ERROR', error.data.message, error.data.location);
+    } else {
+        log('ERROR', 'Unexpected error');
+        console.error(error);
+    }
+});
+
 main();
 
 function main() {
@@ -34,12 +43,3 @@ function main() {
 
     console.log(JSON.stringify(statements));
 }
-
-process.on('uncaughtException', (error) => {
-    if (error instanceof InputError) {
-        log('ERROR', error.data.message, error.data.location);
-    } else {
-        log('ERROR', 'Unexpected error');
-        console.error(error);
-    }
-});
