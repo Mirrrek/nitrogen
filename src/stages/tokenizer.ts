@@ -129,15 +129,35 @@ export default function tokenize(file: string, input: string): Token[] {
             }
         }
 
-        // Match number literals
+        // Match integer literals
         {
-            const match = input.match(/^(?:0x|0b|0o)?[0-9]+(?:\.[0-9]+)?/);
-            if (match !== null) {
-                if (match[0].includes('.')) {
-                    tokens.push({ type: 'float-literal', value: parseFloat(match[0]), location: { file, line, column } });
-                } else {
-                    tokens.push({ type: 'integer-literal', value: parseInt(match[0]), location: { file, line, column } });
+            const match = input.match(/^0x[0-9a-fA-F]+/) ?? input.match(/^0b[01]+/) ?? input.match(/^0o[0-7]+/) ?? input.match(/^[0-9]+/);
+            if (match !== null && !/^\./.test(input.slice(match[0].length))) {
+                let base = 10;
+                switch (match[0].slice(0, 2)) {
+                    case '0x':
+                        base = 16;
+                        break;
+                    case '0b':
+                        base = 2;
+                        break;
+                    case '0o':
+                        base = 8;
+                        break;
                 }
+                tokens.push({ type: 'integer-literal', value: parseInt(base === 10 ? match[0] : match[0].slice(2), base), location: { file, line, column } });
+
+                input = input.slice(match[0].length);
+                column += match[0].length;
+                continue;
+            }
+        }
+
+        // Match float literals
+        {
+            const match = input.match(/^[0-9]+\.[0-9]+/);
+            if (match !== null) {
+                tokens.push({ type: 'float-literal', value: parseFloat(match[0]), location: { file, line, column } });
 
                 input = input.slice(match[0].length);
                 column += match[0].length;
