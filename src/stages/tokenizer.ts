@@ -11,6 +11,12 @@ const symbols = [
     '%',
     '|',
     '&',
+    '==',
+    '!=',
+    '<',
+    '<=',
+    '>',
+    '>=',
     '(',
     ')'
 ] as const;
@@ -117,7 +123,8 @@ export default function tokenize(file: string, input: string): Token[] {
         // Match symbols
         {
             let matched = false;
-            for (const symbol of symbols) {
+            const orderedSymbols = [...symbols].sort((a, b) => b.length - a.length);
+            for (const symbol of orderedSymbols) {
                 if (input.startsWith(symbol)) {
                     tokens.push({ type: 'symbol', value: symbol, location: { file, line, column } });
                     input = input.slice(symbol.length);
