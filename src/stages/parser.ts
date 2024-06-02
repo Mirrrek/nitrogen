@@ -250,7 +250,7 @@ export default function parse(tokens: Token[]): Statement[] {
             }
         }
 
-        throw new InputError(['Expected statement'], tokens[0].location);
+        throw new InputError(['Invalid statement'], tokens[0].location);
     }
 
     return statements;
@@ -387,7 +387,7 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
         }
     }
 
-    throw new InputError(['Expected expression'], tokens[0].location);
+    throw new InputError(['Invalid expression'], tokens[0].location);
 }
 
 type Pattern<T extends Token | { type: 'expression' }> = ({
