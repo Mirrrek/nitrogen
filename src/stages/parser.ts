@@ -269,181 +269,169 @@ export default function parse(tokens: Token[]): Statement[] {
     const statements: Statement[] = [];
 
     while (tokens.length > 0) {
-        // Parse declaration
-        {
-            const [match, tokenCount] = matchPattern(tokens, [
-                { type: 'keyword', value: 'const', optional: true },
-                { type: 'identifier' },
-                { type: 'identifier' },
-                { type: 'symbol', value: ';' }
-            ]);
-            if (match !== null) {
-                const [
-                    constToken,
-                    typeIdentifierToken,
-                    variableIdentifierToken,
-                    semicolonToken
-                ] = match;
-
-                statements.push({
-                    type: 'declaration',
-                    typeIdentifier: typeIdentifierToken.value,
-                    variableIdentifier: variableIdentifierToken.value,
-                    const: constToken !== null,
-                    location: constToken?.location ?? typeIdentifierToken.location
-                });
-
-                tokens = tokens.slice(tokenCount);
-                continue;
-            }
-        }
-
-        // Parse declaration with assignment
-        {
-            const [match, tokenCount] = matchPattern(tokens, [
-                { type: 'keyword', value: 'const', optional: true },
-                { type: 'identifier' },
-                { type: 'identifier' },
-                { type: 'symbol', value: '=' },
-                { type: 'expression' },
-                { type: 'symbol', value: ';' }
-            ]);
-            if (match !== null) {
-                const [
-                    constToken,
-                    typeIdentifierToken,
-                    variableIdentifierToken,
-                    equalsToken,
-                    assignment,
-                    semicolonToken
-                ] = match;
-
-                statements.push({
-                    type: 'declaration-with-assignment',
-                    typeIdentifier: typeIdentifierToken.value,
-                    variableIdentifier: variableIdentifierToken.value,
-                    const: constToken !== null,
-                    assignment,
-                    location: constToken?.location ?? typeIdentifierToken.location
-                });
-
-                tokens = tokens.slice(tokenCount);
-                continue;
-            }
-        }
-
-        // Parse assignment
-        {
-            const [match, tokenCount] = matchPattern(tokens, [
-                { type: 'identifier' },
-                { type: 'symbol', value: '=' },
-                { type: 'expression' },
-                { type: 'symbol', value: ';' }
-            ]);
-            if (match !== null) {
-                const [
-                    variableIdentifierToken,
-                    equalsToken,
-                    assignment,
-                    semicolonToken
-                ] = match;
-
-                statements.push({
-                    type: 'assignment',
-                    variableIdentifier: variableIdentifierToken.value,
-                    assignment,
-                    location: variableIdentifierToken.location
-                });
-
-                tokens = tokens.slice(tokenCount);
-                continue;
-            }
-        }
-
-        // Parse increment
-        {
-            const [match, tokenCount] = matchPattern(tokens, [
-                { type: 'identifier' },
-                { type: 'symbol', value: '++' },
-                { type: 'symbol', value: ';' }
-            ]);
-            if (match !== null) {
-                const [
-                    variableIdentifierToken,
-                    incrementToken,
-                    semicolonToken
-                ] = match;
-
-                statements.push({
-                    type: 'increment',
-                    variableIdentifier: variableIdentifierToken.value,
-                    location: variableIdentifierToken.location
-                });
-
-                tokens = tokens.slice(tokenCount);
-                continue;
-            }
-        }
-
-        // Parse decrement
-        {
-            const [match, tokenCount] = matchPattern(tokens, [
-                { type: 'identifier' },
-                { type: 'symbol', value: '--' },
-                { type: 'symbol', value: ';' }
-            ]);
-            if (match !== null) {
-                const [
-                    variableIdentifierToken,
-                    decrementToken,
-                    semicolonToken
-                ] = match;
-
-                statements.push({
-                    type: 'decrement',
-                    variableIdentifier: variableIdentifierToken.value,
-                    location: variableIdentifierToken.location
-                });
-
-                tokens = tokens.slice(tokenCount);
-                continue;
-            }
-        }
-
-        // Parse function call
-        {
-            const [match, tokenCount] = matchPattern(tokens, [
-                { type: 'identifier' },
-                { type: 'symbol', value: '(' },
-                { type: 'arguments' },
-                { type: 'symbol', value: ')' },
-                { type: 'symbol', value: ';' }
-            ]);
-            if (match !== null) {
-                const [
-                    functionIdentifierToken,
-                    openParenthesisToken,
-                    argumentExpressions,
-                    closeParenthesisToken,
-                    semicolonToken
-                ] = match;
-
-                statements.push({
-                    type: 'function-call',
-                    functionIdentifier: functionIdentifierToken.value,
-                    arguments: argumentExpressions,
-                    location: functionIdentifierToken.location
-                });
-
-                tokens = tokens.slice(tokenCount);
-                continue;
-            }
-        }
-
-        throw new InputError(['Invalid statement'], tokens[0].location);
+        const [statement, tokenCount] = parseStatement(tokens);
+        statements.push(statement);
+        tokens = tokens.slice(tokenCount);
     }
 
     return statements;
+}
+
+function parseStatement(tokens: Token[]): [Statement, number] {
+    // Parse declaration
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'keyword', value: 'const', optional: true },
+            { type: 'identifier' },
+            { type: 'identifier' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                constToken,
+                typeIdentifierToken,
+                variableIdentifierToken,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'declaration',
+                typeIdentifier: typeIdentifierToken.value,
+                variableIdentifier: variableIdentifierToken.value,
+                const: constToken !== null,
+                location: constToken?.location ?? typeIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse declaration with assignment
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'keyword', value: 'const', optional: true },
+            { type: 'identifier' },
+            { type: 'identifier' },
+            { type: 'symbol', value: '=' },
+            { type: 'expression' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                constToken,
+                typeIdentifierToken,
+                variableIdentifierToken,
+                equalsToken,
+                assignment,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'declaration-with-assignment',
+                typeIdentifier: typeIdentifierToken.value,
+                variableIdentifier: variableIdentifierToken.value,
+                const: constToken !== null,
+                assignment,
+                location: constToken?.location ?? typeIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse assignment
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'identifier' },
+            { type: 'symbol', value: '=' },
+            { type: 'expression' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                variableIdentifierToken,
+                equalsToken,
+                assignment,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'assignment',
+                variableIdentifier: variableIdentifierToken.value,
+                assignment,
+                location: variableIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse increment
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'identifier' },
+            { type: 'symbol', value: '++' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                variableIdentifierToken,
+                incrementToken,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'increment',
+                variableIdentifier: variableIdentifierToken.value,
+                location: variableIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse decrement
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'identifier' },
+            { type: 'symbol', value: '--' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                variableIdentifierToken,
+                decrementToken,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'decrement',
+                variableIdentifier: variableIdentifierToken.value,
+                location: variableIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse function call
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'identifier' },
+            { type: 'symbol', value: '(' },
+            { type: 'arguments' },
+            { type: 'symbol', value: ')' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                functionIdentifierToken,
+                openParenthesisToken,
+                argumentExpressions,
+                closeParenthesisToken,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'function-call',
+                functionIdentifier: functionIdentifierToken.value,
+                arguments: argumentExpressions,
+                location: functionIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    throw new InputError(['Invalid statement'], tokens[0].location);
 }
 
 function parseExpression(tokens: Token[]): [Expression, number] {
