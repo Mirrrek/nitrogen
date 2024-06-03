@@ -45,12 +45,19 @@ export type FunctionCallStatement = {
     location: Location;
 }
 
+export type ScopeStatement = {
+    type: 'scope';
+    statements: Statement[];
+    location: Location;
+}
+
 export type Statement = DeclarationStatement |
     DeclarationWithAssignmentStatement |
     AssignmentStatement |
     IncrementStatement |
     DecrementStatement |
-    FunctionCallStatement;
+    FunctionCallStatement |
+    ScopeStatement;
 
 export type IntegerLiteralPrimitiveExpression = {
     type: 'integer-literal';
@@ -431,6 +438,28 @@ function parseStatement(tokens: Token[]): [Statement, number] {
         }
     }
 
+    // Parse scope
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'symbol', value: '{' },
+            { type: 'statements' },
+            { type: 'symbol', value: '}' }
+        ]);
+        if (match !== null) {
+            const [
+                openBraceToken,
+                scopeStatements,
+                closeBraceToken
+            ] = match;
+
+            return [{
+                type: 'scope',
+                statements: scopeStatements,
+                location: openBraceToken.location
+            }, tokenCount];
+        }
+    }
+
     throw new InputError(['Invalid statement'], tokens[0].location);
 }
 
@@ -633,13 +662,13 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
     throw new InputError(['Invalid expression'], tokens[0].location);
 }
 
-type Pattern<T extends Token | { type: 'expression' } | { type: 'arguments' } = Token | { type: 'expression' } | { type: 'arguments' }> = ({
+type Pattern<T extends Token | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' } = Token | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' }> = ({
     [K in keyof T as K extends 'type' | 'value' ? K : never]?: T[K] | T[K][];
 } & {
     optional?: boolean;
 });
 
-function matchPattern<T extends Pattern[]>(tokens: Token[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : T[K]['type'] extends 'arguments' ? Expression[] : (Extract<Token, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never)) } | null, number] {
+function matchPattern<T extends Pattern[]>(tokens: Token[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : T[K]['type'] extends 'arguments' ? Expression[] : T[K]['type'] extends 'statements' ? Statement[] : (Extract<Token, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never)) } | null, number] {
     const match: any = [];
 
     let tokenIndex = 0;
@@ -677,6 +706,27 @@ function matchPattern<T extends Pattern[]>(tokens: Token[], pattern: [...T]): [{
             } while (tokens[tokenIndex].type === 'symbol' && tokens[tokenIndex].value === ',' && tokenIndex++);
 
             match.push(expressions);
+            continue;
+        }
+
+        if (patternToken.type === 'statements') {
+            const statements: Statement[] = [];
+
+            while (true) {
+                try {
+                    const [statement, tokenCount] = parseStatement(tokens.slice(tokenIndex));
+                    statements.push(statement);
+                    tokenIndex += tokenCount;
+                } catch (e) {
+                    break;
+                }
+
+                if (tokenIndex >= tokens.length) {
+                    return [null, 0];
+                }
+            }
+
+            match.push(statements);
             continue;
         }
 

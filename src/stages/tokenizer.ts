@@ -21,7 +21,9 @@ const symbols = [
     '>',
     '>=',
     '(',
-    ')'
+    ')',
+    '{',
+    '}'
 ] as const;
 
 const keywords = [

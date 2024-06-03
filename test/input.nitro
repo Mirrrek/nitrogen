@@ -1,6 +1,15 @@
 const String x = 'Hello, world!';           // Our first comment!
 
-u8 a;
-a++;
+u8 a = 12;
+u8 b = 34;
 
-u8 b = a-- * 5;
+{
+    u8 c = a + b;
+    u8 d;
+    {
+        d = c + 1;
+    }
+    u8 e = d + 1;
+}
+
+u8 f = 0;
