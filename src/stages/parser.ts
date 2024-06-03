@@ -26,6 +26,18 @@ export type AssignmentStatement = {
     location: Location;
 }
 
+export type IncrementStatement = {
+    type: 'increment';
+    variableIdentifier: string;
+    location: Location;
+}
+
+export type DecrementStatement = {
+    type: 'decrement';
+    variableIdentifier: string;
+    location: Location;
+}
+
 export type FunctionCallStatement = {
     type: 'function-call';
     functionIdentifier: string;
@@ -36,6 +48,8 @@ export type FunctionCallStatement = {
 export type Statement = DeclarationStatement |
     DeclarationWithAssignmentStatement |
     AssignmentStatement |
+    IncrementStatement |
+    DecrementStatement |
     FunctionCallStatement;
 
 export type IntegerLiteralPrimitiveExpression = {
@@ -62,6 +76,18 @@ export type VariablePrimitiveExpression = {
     location: Location;
 }
 
+export type IncrementPrimitiveExpression = {
+    type: 'increment';
+    identifier: string;
+    location: Location;
+}
+
+export type DecrementPrimitiveExpression = {
+    type: 'decrement';
+    identifier: string;
+    location: Location;
+}
+
 export type SubExpressionPrimitiveExpression = {
     type: 'sub-expression';
     expression: Expression;
@@ -79,6 +105,8 @@ export type PrimitiveExpression = IntegerLiteralPrimitiveExpression |
     FloatLiteralPrimitiveExpression |
     StringLiteralPrimitiveExpression |
     VariablePrimitiveExpression |
+    IncrementPrimitiveExpression |
+    DecrementPrimitiveExpression |
     SubExpressionPrimitiveExpression |
     FunctionCallPrimitiveExpression;
 
@@ -332,6 +360,56 @@ export default function parse(tokens: Token[]): Statement[] {
             }
         }
 
+        // Parse increment
+        {
+            const [match, tokenCount] = matchPattern(tokens, [
+                { type: 'identifier' },
+                { type: 'symbol', value: '++' },
+                { type: 'symbol', value: ';' }
+            ]);
+            if (match !== null) {
+                const [
+                    variableIdentifierToken,
+                    incrementToken,
+                    semicolonToken
+                ] = match;
+
+                statements.push({
+                    type: 'increment',
+                    variableIdentifier: variableIdentifierToken.value,
+                    location: variableIdentifierToken.location
+                });
+
+                tokens = tokens.slice(tokenCount);
+                continue;
+            }
+        }
+
+        // Parse decrement
+        {
+            const [match, tokenCount] = matchPattern(tokens, [
+                { type: 'identifier' },
+                { type: 'symbol', value: '--' },
+                { type: 'symbol', value: ';' }
+            ]);
+            if (match !== null) {
+                const [
+                    variableIdentifierToken,
+                    decrementToken,
+                    semicolonToken
+                ] = match;
+
+                statements.push({
+                    type: 'decrement',
+                    variableIdentifier: variableIdentifierToken.value,
+                    location: variableIdentifierToken.location
+                });
+
+                tokens = tokens.slice(tokenCount);
+                continue;
+            }
+        }
+
         // Parse function call
         {
             const [match, tokenCount] = matchPattern(tokens, [
@@ -480,6 +558,46 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
                 functionIdentifier: functionIdentifierToken.value,
                 arguments: argumentExpressions,
                 location: functionIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse increment
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'identifier' },
+            { type: 'symbol', value: '++' }
+        ]);
+        if (match !== null) {
+            const [
+                identifierToken,
+                incrementToken
+            ] = match;
+
+            return [{
+                type: 'increment',
+                identifier: identifierToken.value,
+                location: identifierToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse decrement
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'identifier' },
+            { type: 'symbol', value: '--' }
+        ]);
+        if (match !== null) {
+            const [
+                identifierToken,
+                decrementToken
+            ] = match;
+
+            return [{
+                type: 'decrement',
+                identifier: identifierToken.value,
+                location: identifierToken.location
             }, tokenCount];
         }
     }

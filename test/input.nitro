@@ -1,7 +1,6 @@
 const String x = 'Hello, world!';           // Our first comment!
 
-u32 t = getTimestamp();
+u8 a;
+a++;
 
-log('INFO', t);
-
-f16 x = pow(1.0 + 1.0, 3.0);
+u8 b = a-- * 5;
