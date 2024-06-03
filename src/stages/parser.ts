@@ -26,9 +26,17 @@ export type AssignmentStatement = {
     location: Location;
 }
 
+export type FunctionCallStatement = {
+    type: 'function-call';
+    functionIdentifier: string;
+    arguments: Expression[];
+    location: Location;
+}
+
 export type Statement = DeclarationStatement |
     DeclarationWithAssignmentStatement |
-    AssignmentStatement;
+    AssignmentStatement |
+    FunctionCallStatement;
 
 export type IntegerLiteralPrimitiveExpression = {
     type: 'integer-literal';
@@ -60,11 +68,19 @@ export type SubExpressionPrimitiveExpression = {
     location: Location;
 }
 
+export type FunctionCallPrimitiveExpression = {
+    type: 'function-call';
+    functionIdentifier: string;
+    arguments: Expression[];
+    location: Location;
+}
+
 export type PrimitiveExpression = IntegerLiteralPrimitiveExpression |
     FloatLiteralPrimitiveExpression |
     StringLiteralPrimitiveExpression |
     VariablePrimitiveExpression |
-    SubExpressionPrimitiveExpression;
+    SubExpressionPrimitiveExpression |
+    FunctionCallPrimitiveExpression;
 
 export type AdditionBinaryExpression = {
     type: 'addition';
@@ -316,6 +332,36 @@ export default function parse(tokens: Token[]): Statement[] {
             }
         }
 
+        // Parse function call
+        {
+            const [match, tokenCount] = matchPattern(tokens, [
+                { type: 'identifier' },
+                { type: 'symbol', value: '(' },
+                { type: 'arguments' },
+                { type: 'symbol', value: ')' },
+                { type: 'symbol', value: ';' }
+            ]);
+            if (match !== null) {
+                const [
+                    functionIdentifierToken,
+                    openParenthesisToken,
+                    argumentExpressions,
+                    closeParenthesisToken,
+                    semicolonToken
+                ] = match;
+
+                statements.push({
+                    type: 'function-call',
+                    functionIdentifier: functionIdentifierToken.value,
+                    arguments: argumentExpressions,
+                    location: functionIdentifierToken.location
+                });
+
+                tokens = tokens.slice(tokenCount);
+                continue;
+            }
+        }
+
         throw new InputError(['Invalid statement'], tokens[0].location);
     }
 
@@ -413,6 +459,31 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
         }
     }
 
+    // Parse function call
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'identifier' },
+            { type: 'symbol', value: '(' },
+            { type: 'arguments' },
+            { type: 'symbol', value: ')' }
+        ]);
+        if (match !== null) {
+            const [
+                functionIdentifierToken,
+                openParenthesisToken,
+                argumentExpressions,
+                closeParenthesisToken
+            ] = match;
+
+            return [{
+                type: 'function-call',
+                functionIdentifier: functionIdentifierToken.value,
+                arguments: argumentExpressions,
+                location: functionIdentifierToken.location
+            }, tokenCount];
+        }
+    }
+
     // Parse variable
     {
         const [match, tokenCount] = matchPattern(tokens, [
@@ -456,13 +527,13 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
     throw new InputError(['Invalid expression'], tokens[0].location);
 }
 
-type Pattern<T extends Token | { type: 'expression' }> = ({
+type Pattern<T extends Token | { type: 'expression' } | { type: 'arguments' } = Token | { type: 'expression' } | { type: 'arguments' }> = ({
     [K in keyof T as K extends 'type' | 'value' ? K : never]?: T[K] | T[K][];
 } & {
     optional?: boolean;
 });
 
-function matchPattern<T extends Pattern<Token | { type: 'expression' }>[]>(tokens: Token[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : Extract<Token, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never) } | null, number] {
+function matchPattern<T extends Pattern[]>(tokens: Token[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : T[K]['type'] extends 'arguments' ? Expression[] : (Extract<Token, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never)) } | null, number] {
     const match: any = [];
 
     let tokenIndex = 0;
@@ -479,6 +550,27 @@ function matchPattern<T extends Pattern<Token | { type: 'expression' }>[]>(token
 
             match.push(expression);
             tokenIndex += tokenCount;
+            continue;
+        }
+
+        if (patternToken.type === 'arguments') {
+            const expressions: Expression[] = [];
+
+            do {
+                try {
+                    const [expression, tokenCount] = parseExpression(tokens.slice(tokenIndex));
+                    expressions.push(expression);
+                    tokenIndex += tokenCount;
+                } catch (e) {
+                    break;
+                }
+
+                if (tokenIndex >= tokens.length) {
+                    return [null, 0];
+                }
+            } while (tokens[tokenIndex].type === 'symbol' && tokens[tokenIndex].value === ',' && tokenIndex++);
+
+            match.push(expressions);
             continue;
         }
 

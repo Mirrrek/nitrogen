@@ -1,11 +1,7 @@
 const String x = 'Hello, world!';           // Our first comment!
-f8 y = 42.6 + 5 * 2 - 3;
 
-u32 z;
-z = -14 | 0b10101010;
-z = (0x1234 & 0xff) % 2;
+u32 t = getTimestamp();
 
-bool a = z == 0;
-bool b = y >= z * 1.2;
+log('INFO', t);
 
-String řeřicha = 'Příliš žluťoučký kůň úpěl ďábelské ódy. 😎';
+f16 x = pow(1.0 + 1.0, 3.0);

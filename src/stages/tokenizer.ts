@@ -2,6 +2,7 @@ import { InputError } from '../errors';
 import log, { Location } from '@/log';
 
 const symbols = [
+    ',',
     ';',
     '=',
     '+',
