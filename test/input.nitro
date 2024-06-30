@@ -1,7 +1,9 @@
 const String x = 'Hello, world!';           // Our first comment!
 
-i8 = rand();
+for (u8 i = 0; i < 10; i++) {
+    if (i % 2 == 0) {
+        continue;
+    }
 
-u32 random(u32 min, u32 max) {
-    return min + (rand() % (max - min));
+    print(i);
 }

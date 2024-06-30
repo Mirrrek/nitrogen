@@ -82,6 +82,11 @@ export type ForStatement = {
     location: Location;
 }
 
+export type ContinueStatement = {
+    type: 'continue';
+    location: Location;
+}
+
 export type BreakStatement = {
     type: 'break';
     location: Location;
@@ -107,6 +112,7 @@ export type Statement = PrimitiveStatement |
     IfStatement |
     WhileStatement |
     ForStatement |
+    ContinueStatement |
     BreakStatement |
     FunctionDeclarationStatement |
     ReturnStatement;
@@ -720,6 +726,25 @@ function parseStatement(tokens: LocalizedToken[], terminator: Token = { type: 's
                 action,
                 statements: forStatements,
                 location: forToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse continue
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'keyword', value: 'continue' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                continueToken,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'continue',
+                location: continueToken.location
             }, tokenCount];
         }
     }

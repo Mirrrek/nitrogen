@@ -32,6 +32,7 @@ const keywords = [
     'while',
     'do',
     'for',
+    'continue',
     'break',
     'return',
     'const'
