@@ -959,7 +959,7 @@ function matchPattern<T extends Pattern[]>(tokens: LocalizedToken[], pattern: [.
         if (patternToken.type === 'arguments') {
             const expressions: Expression[] = [];
 
-            do {
+            try {
                 const [expression, tokenCount] = parseExpression(tokens.slice(tokenIndex));
                 expressions.push(expression);
                 tokenIndex += tokenCount;
@@ -967,7 +967,24 @@ function matchPattern<T extends Pattern[]>(tokens: LocalizedToken[], pattern: [.
                 if (tokenIndex >= tokens.length) {
                     return [null, 0];
                 }
-            } while (tokens[tokenIndex].type === 'symbol' && tokens[tokenIndex].value === ',' && ++tokenIndex);
+            } catch (e) {
+                if (!(e instanceof InputError)) {
+                    throw e;
+                }
+                match.push([]);
+                throwOnError = true;
+                continue;
+            }
+
+            while (tokens[tokenIndex].type === 'symbol' && tokens[tokenIndex].value === ',' && ++tokenIndex) {
+                const [expression, tokenCount] = parseExpression(tokens.slice(tokenIndex));
+                expressions.push(expression);
+                tokenIndex += tokenCount;
+
+                if (tokenIndex >= tokens.length) {
+                    return [null, 0];
+                }
+            }
 
             match.push(expressions);
             throwOnError = true;
