@@ -40,6 +40,13 @@ module.exports = (env, argv) => {
                     });
                 });
             }
+        }, {
+            apply: (compiler) => {
+                if (!isDevelopment) return;
+                compiler.hooks.afterCompile.tap('AfterCompilePlugin', (compilation) => {
+                    compilation.fileDependencies.add(path.resolve(__dirname, 'test', 'input.nitro'));
+                });
+            }
         }],
         watchOptions: {
             ignored: /node_modules/
