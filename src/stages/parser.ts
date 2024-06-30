@@ -58,8 +58,41 @@ export type ScopeStatement = {
     location: Location;
 }
 
+export type IfStatement = {
+    type: 'if';
+    blocks: { condition: Expression, statements: Statement[] }[];
+    elseBlock: Statement[] | null;
+    location: Location;
+}
+
+export type WhileStatement = {
+    type: 'while';
+    condition: Expression;
+    statements: Statement[];
+    doWhile: boolean;
+    location: Location;
+}
+
+export type ForStatement = {
+    type: 'for';
+    initialization: Statement | null;
+    condition: Expression | null;
+    action: Statement | null;
+    statements: Statement[];
+    location: Location;
+}
+
+export type BreakStatement = {
+    type: 'break';
+    location: Location;
+}
+
 export type Statement = PrimitiveStatement |
-    ScopeStatement;
+    ScopeStatement |
+    IfStatement |
+    WhileStatement |
+    ForStatement |
+    BreakStatement;
 
 export type IntegerLiteralPrimitiveExpression = {
     type: 'integer-literal';
@@ -473,6 +506,222 @@ function parseStatement(tokens: LocalizedToken[], terminator: Token = { type: 's
                 type: 'scope',
                 statements: scopeStatements,
                 location: openBraceToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse if
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'keyword', value: 'if' },
+            { type: 'symbol', value: '(' },
+            { type: 'expression' },
+            { type: 'symbol', value: ')' },
+            { type: 'symbol', value: '{' },
+            { type: 'statements' },
+            { type: 'symbol', value: '}' }
+        ]);
+        if (match !== null) {
+            let totalTokenCount = tokenCount;
+
+            const [
+                ifToken,
+                openParenthesisToken,
+                condition,
+                closeParenthesisToken,
+                openBraceToken,
+                ifStatements,
+                closeBraceToken
+            ] = match;
+
+            const blocks = [{ condition, statements: ifStatements }];
+            let elseBlock: Statement[] | null = null;
+
+            while (true) {
+                const [match, tokenCount] = matchPattern(tokens.slice(totalTokenCount), [
+                    { type: 'keyword', value: 'else' },
+                    { type: 'keyword', value: 'if' },
+                    { type: 'symbol', value: '(' },
+                    { type: 'expression' },
+                    { type: 'symbol', value: ')' },
+                    { type: 'symbol', value: '{' },
+                    { type: 'statements' },
+                    { type: 'symbol', value: '}' }
+                ]);
+                if (match === null) {
+                    break;
+                }
+
+                totalTokenCount += tokenCount;
+
+                const [
+                    elseToken,
+                    elseIfToken,
+                    openParenthesisToken,
+                    condition,
+                    closeParenthesisToken,
+                    openBraceToken,
+                    elseIfStatements,
+                    closeBraceToken
+                ] = match;
+
+                blocks.push({ condition, statements: elseIfStatements });
+            }
+
+            {
+                const [match, tokenCount] = matchPattern(tokens.slice(totalTokenCount), [
+                    { type: 'keyword', value: 'else' },
+                    { type: 'symbol', value: '{' },
+                    { type: 'statements' },
+                    { type: 'symbol', value: '}' }
+                ]);
+                if (match !== null) {
+                    totalTokenCount += tokenCount;
+
+                    const [
+                        elseToken,
+                        openBraceToken,
+                        elseStatements,
+                        closeBraceToken
+                    ] = match;
+
+                    elseBlock = elseStatements;
+                }
+            }
+
+            return [{
+                type: 'if',
+                blocks,
+                elseBlock,
+                location: ifToken.location
+            }, totalTokenCount];
+        }
+    }
+
+    // Parse while
+    {
+        {
+            const [match, tokenCount] = matchPattern(tokens, [
+                { type: 'keyword', value: 'while' },
+                { type: 'symbol', value: '(' },
+                { type: 'expression' },
+                { type: 'symbol', value: ')' },
+                { type: 'symbol', value: '{' },
+                { type: 'statements' },
+                { type: 'symbol', value: '}' }
+            ]);
+            if (match !== null) {
+                const [
+                    whileToken,
+                    openParenthesisToken,
+                    condition,
+                    closeParenthesisToken,
+                    openBraceToken,
+                    whileStatements,
+                    closeBraceToken
+                ] = match;
+
+                return [{
+                    type: 'while',
+                    condition,
+                    statements: whileStatements,
+                    doWhile: false,
+                    location: whileToken.location
+                }, tokenCount];
+            }
+        }
+        {
+            const [match, tokenCount] = matchPattern(tokens, [
+                { type: 'keyword', value: 'do' },
+                { type: 'symbol', value: '{' },
+                { type: 'statements' },
+                { type: 'symbol', value: '}' },
+                { type: 'keyword', value: 'while' },
+                { type: 'symbol', value: '(' },
+                { type: 'expression' },
+                { type: 'symbol', value: ')' },
+                { type: 'symbol', value: ';' }
+            ]);
+            if (match !== null) {
+                const [
+                    doToken,
+                    openBraceToken,
+                    doWhileStatements,
+                    closeBraceToken,
+                    whileToken,
+                    openParenthesisToken,
+                    condition,
+                    closeParenthesisToken,
+                    semicolonToken
+                ] = match;
+
+                return [{
+                    type: 'while',
+                    condition,
+                    statements: doWhileStatements,
+                    doWhile: true,
+                    location: doToken.location
+                }, tokenCount];
+            }
+        }
+    }
+
+    // Parse for
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'keyword', value: 'for' },
+            { type: 'symbol', value: '(' },
+            { type: 'primitive-statement' },
+            { type: 'symbol', value: ';' },
+            { type: 'expression' },
+            { type: 'symbol', value: ';' },
+            { type: 'primitive-statement' },
+            { type: 'symbol', value: ')' },
+            { type: 'symbol', value: '{' },
+            { type: 'statements' },
+            { type: 'symbol', value: '}' }
+        ]);
+        if (match !== null) {
+            const [
+                forToken,
+                openParenthesisToken,
+                initialization,
+                firstSemicolonToken,
+                condition,
+                secondSemicolonToken,
+                increment,
+                closeParenthesisToken,
+                openBraceToken,
+                forStatements,
+                closeBraceToken
+            ] = match;
+
+            return [{
+                type: 'for',
+                initialization,
+                condition,
+                action: increment,
+                statements: forStatements,
+                location: forToken.location
+            }, tokenCount];
+        }
+    }
+
+    // Parse break
+    {
+        const [match, tokenCount] = matchPattern(tokens, [
+            { type: 'keyword', value: 'break' },
+            { type: 'symbol', value: ';' }
+        ]);
+        if (match !== null) {
+            const [
+                breakToken,
+                semicolonToken
+            ] = match;
+
+            return [{
+                type: 'break',
+                location: breakToken.location
             }, tokenCount];
         }
     }

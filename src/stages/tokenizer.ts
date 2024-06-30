@@ -27,6 +27,12 @@ const symbols = [
 ] as const;
 
 const keywords = [
+    'if',
+    'else',
+    'while',
+    'do',
+    'for',
+    'break',
     'const'
 ] as const;
 
