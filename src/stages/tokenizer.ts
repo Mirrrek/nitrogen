@@ -33,45 +33,46 @@ const keywords = [
 export type SymbolToken = {
     type: 'symbol';
     value: typeof symbols[number];
-    location: Location;
 }
 
 export type KeywordToken = {
     type: 'keyword';
     value: typeof keywords[number];
-    location: Location;
 }
 
 export type IdentifierToken = {
     type: 'identifier';
     value: string;
-    location: Location;
 }
 
 export type IntegerLiteralToken = {
     type: 'integer-literal';
     value: number;
-    location: Location;
 }
 
 export type FloatLiteralToken = {
     type: 'float-literal';
     value: number;
-    location: Location;
 }
 
 export type StringLiteralToken = {
     type: 'string-literal';
     value: string;
-    location: Location;
 }
 
-export type Token = KeywordToken | SymbolToken | IdentifierToken | IntegerLiteralToken | FloatLiteralToken | StringLiteralToken;
+export type Token = KeywordToken |
+    SymbolToken |
+    IdentifierToken |
+    IntegerLiteralToken |
+    FloatLiteralToken |
+    StringLiteralToken;
+
+export type LocalizedToken = Token & { location: Location };
 
 const allowedIdentifierASCIICharacters = /[a-zA-Z0-9_]/;
 
-export default function tokenize(file: string, input: string): Token[] {
-    const tokens: Token[] = [];
+export default function tokenize(file: string, input: string): LocalizedToken[] {
+    const tokens: LocalizedToken[] = [];
 
     let line = 1;
     let column = 1;

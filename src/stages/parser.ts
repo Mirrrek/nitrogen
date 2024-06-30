@@ -1,4 +1,4 @@
-import { Token } from '@/stages/tokenizer';
+import { Token, LocalizedToken } from '@/stages/tokenizer';
 import { InputError } from '@/errors';
 import { Location } from '@/log';
 
@@ -224,7 +224,7 @@ export type BinaryExpression = AdditionBinaryExpression |
 
 export type Expression = PrimitiveExpression | BinaryExpression;
 
-const binaryOperators: { [K in BinaryExpression['type']]: Extract<Token, { type: 'symbol' }>['value'] } = {
+const binaryOperators: { [K in BinaryExpression['type']]: Extract<LocalizedToken, { type: 'symbol' }>['value'] } = {
     'addition': '+',
     'subtraction': '-',
     'multiplication': '*',
@@ -272,7 +272,7 @@ const binaryOperatorAssociativity: { [K in BinaryExpression['type']]: 'left' | '
     'greater-than-or-equal': 'left'
 }
 
-export default function parse(tokens: Token[]): Statement[] {
+export default function parse(tokens: LocalizedToken[]): Statement[] {
     const statements: Statement[] = [];
 
     while (tokens.length > 0) {
@@ -284,7 +284,7 @@ export default function parse(tokens: Token[]): Statement[] {
     return statements;
 }
 
-function parseStatement(tokens: Token[]): [Statement, number] {
+function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
     // Parse declaration
     {
         const [match, tokenCount] = matchPattern(tokens, [
@@ -463,11 +463,11 @@ function parseStatement(tokens: Token[]): [Statement, number] {
     throw new InputError(['Invalid statement'], tokens[0].location);
 }
 
-function parseExpression(tokens: Token[]): [Expression, number] {
+function parseExpression(tokens: LocalizedToken[]): [Expression, number] {
     return parseBinaryExpression(tokens, 0);
 }
 
-function parseBinaryExpression(tokens: Token[], precedence: number): [Expression, number] {
+function parseBinaryExpression(tokens: LocalizedToken[], precedence: number): [Expression, number] {
     let [result, tokenCount]: [Expression, number] = parsePrimitiveExpression(tokens);
     tokens = tokens.slice(tokenCount);
 
@@ -495,7 +495,7 @@ function parseBinaryExpression(tokens: Token[], precedence: number): [Expression
     return [result, tokenCount];
 }
 
-function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number] {
+function parsePrimitiveExpression(tokens: LocalizedToken[]): [PrimitiveExpression, number] {
     // Parse integer literal
     {
         const [match, tokenCount] = matchPattern(tokens, [
@@ -662,13 +662,13 @@ function parsePrimitiveExpression(tokens: Token[]): [PrimitiveExpression, number
     throw new InputError(['Invalid expression'], tokens[0].location);
 }
 
-type Pattern<T extends Token | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' } = Token | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' }> = ({
+type Pattern<T extends LocalizedToken | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' } = LocalizedToken | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' }> = ({
     [K in keyof T as K extends 'type' | 'value' ? K : never]?: T[K] | T[K][];
 } & {
     optional?: boolean;
 });
 
-function matchPattern<T extends Pattern[]>(tokens: Token[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : T[K]['type'] extends 'arguments' ? Expression[] : T[K]['type'] extends 'statements' ? Statement[] : (Extract<Token, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never)) } | null, number] {
+function matchPattern<T extends Pattern[]>(tokens: LocalizedToken[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : T[K]['type'] extends 'arguments' ? Expression[] : T[K]['type'] extends 'statements' ? Statement[] : (Extract<LocalizedToken, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never)) } | null, number] {
     const match: any = [];
 
     let tokenIndex = 0;
