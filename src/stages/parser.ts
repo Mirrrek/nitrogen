@@ -344,7 +344,7 @@ function parsePrimitiveStatement(tokens: LocalizedToken[], terminator: Token): [
                 typeIdentifier: typeIdentifierToken.value,
                 variableIdentifier: variableIdentifierToken.value,
                 const: constToken !== null,
-                location: constToken?.location ?? typeIdentifierToken.location
+                location: variableIdentifierToken.location
             }, tokenCount];
         }
     }
@@ -375,7 +375,7 @@ function parsePrimitiveStatement(tokens: LocalizedToken[], terminator: Token): [
                 variableIdentifier: variableIdentifierToken.value,
                 const: constToken !== null,
                 assignment,
-                location: constToken?.location ?? typeIdentifierToken.location
+                location: variableIdentifierToken.location
             }, tokenCount];
         }
     }
@@ -689,7 +689,7 @@ function parseStatement(tokens: LocalizedToken[], terminator: Token = { type: 's
                 firstSemicolonToken,
                 condition,
                 secondSemicolonToken,
-                increment,
+                action,
                 closeParenthesisToken,
                 openBraceToken,
                 forStatements,
@@ -700,7 +700,7 @@ function parseStatement(tokens: LocalizedToken[], terminator: Token = { type: 's
                 type: 'for',
                 initialization,
                 condition,
-                action: increment,
+                action,
                 statements: forStatements,
                 location: forToken.location
             }, tokenCount];
@@ -920,7 +920,7 @@ function parsePrimitiveExpression(tokens: LocalizedToken[]): [PrimitiveExpressio
             return [{
                 type: 'sub-expression',
                 expression,
-                location: expression.location
+                location: openParenthesisToken.location
             }, tokenCount];
         }
     }
