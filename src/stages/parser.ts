@@ -45,18 +45,20 @@ export type FunctionCallStatement = {
     location: Location;
 }
 
+export type PrimitiveStatement = DeclarationStatement |
+    DeclarationWithAssignmentStatement |
+    AssignmentStatement |
+    IncrementStatement |
+    DecrementStatement |
+    FunctionCallStatement;
+
 export type ScopeStatement = {
     type: 'scope';
     statements: Statement[];
     location: Location;
 }
 
-export type Statement = DeclarationStatement |
-    DeclarationWithAssignmentStatement |
-    AssignmentStatement |
-    IncrementStatement |
-    DecrementStatement |
-    FunctionCallStatement |
+export type Statement = PrimitiveStatement |
     ScopeStatement;
 
 export type IntegerLiteralPrimitiveExpression = {
@@ -284,14 +286,14 @@ export default function parse(tokens: LocalizedToken[]): Statement[] {
     return statements;
 }
 
-function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
+function parsePrimitiveStatement(tokens: LocalizedToken[], terminator: Token): [PrimitiveStatement, number] {
     // Parse declaration
     {
         const [match, tokenCount] = matchPattern(tokens, [
             { type: 'keyword', value: 'const', optional: true },
             { type: 'identifier' },
             { type: 'identifier' },
-            { type: 'symbol', value: ';' }
+            terminator
         ]);
         if (match !== null) {
             const [
@@ -319,7 +321,7 @@ function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
             { type: 'identifier' },
             { type: 'symbol', value: '=' },
             { type: 'expression' },
-            { type: 'symbol', value: ';' }
+            terminator
         ]);
         if (match !== null) {
             const [
@@ -348,7 +350,7 @@ function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
             { type: 'identifier' },
             { type: 'symbol', value: '=' },
             { type: 'expression' },
-            { type: 'symbol', value: ';' }
+            terminator
         ]);
         if (match !== null) {
             const [
@@ -372,7 +374,7 @@ function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
         const [match, tokenCount] = matchPattern(tokens, [
             { type: 'identifier' },
             { type: 'symbol', value: '++' },
-            { type: 'symbol', value: ';' }
+            terminator
         ]);
         if (match !== null) {
             const [
@@ -394,7 +396,7 @@ function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
         const [match, tokenCount] = matchPattern(tokens, [
             { type: 'identifier' },
             { type: 'symbol', value: '--' },
-            { type: 'symbol', value: ';' }
+            terminator
         ]);
         if (match !== null) {
             const [
@@ -418,7 +420,7 @@ function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
             { type: 'symbol', value: '(' },
             { type: 'arguments' },
             { type: 'symbol', value: ')' },
-            { type: 'symbol', value: ';' }
+            terminator
         ]);
         if (match !== null) {
             const [
@@ -435,6 +437,21 @@ function parseStatement(tokens: LocalizedToken[]): [Statement, number] {
                 arguments: argumentExpressions,
                 location: functionIdentifierToken.location
             }, tokenCount];
+        }
+    }
+
+    throw new InputError(['Invalid statement'], tokens[0].location);
+}
+
+function parseStatement(tokens: LocalizedToken[], terminator: Token = { type: 'symbol', value: ';' }): [Statement, number] {
+    // Parse primitive statement
+    {
+        try {
+            return parsePrimitiveStatement(tokens, terminator);
+        } catch (error) {
+            if (!(error instanceof InputError)) {
+                throw error;
+            }
         }
     }
 
@@ -662,14 +679,13 @@ function parsePrimitiveExpression(tokens: LocalizedToken[]): [PrimitiveExpressio
     throw new InputError(['Invalid expression'], tokens[0].location);
 }
 
-type Pattern<T extends LocalizedToken | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' } = LocalizedToken | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' }> = ({
+type Pattern<T extends LocalizedToken | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' } | { type: 'primitive-statement' } = LocalizedToken | { type: 'expression' } | { type: 'arguments' } | { type: 'statements' } | { type: 'primitive-statement' }> = ({
     [K in keyof T as K extends 'type' | 'value' ? K : never]?: T[K] | T[K][];
 } & {
     optional?: boolean;
 });
 
-function matchPattern<T extends Pattern[]>(tokens: LocalizedToken[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : T[K]['type'] extends 'arguments' ? Expression[] : T[K]['type'] extends 'statements' ? Statement[] : (Extract<LocalizedToken, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never)) } | null, number] {
-    const match: any = [];
+function matchPattern<T extends Pattern[]>(tokens: LocalizedToken[], pattern: [...T]): [{ [K in keyof T]: T[K]['type'] extends 'expression' ? Expression : T[K]['type'] extends 'arguments' ? Expression[] : T[K]['type'] extends 'statements' ? Statement[] : T[K]['type'] extends 'primitive-statement' ? Statement : (Extract<LocalizedToken, { type: T[K]['type'] }> | (T[K]['optional'] extends true ? null : never)) } | null, number] {
 
     let tokenIndex = 0;
     for (let patternIndex = 0; patternIndex < pattern.length; patternIndex++) {
@@ -730,6 +746,27 @@ function matchPattern<T extends Pattern[]>(tokens: LocalizedToken[], pattern: [.
             continue;
         }
 
+        if (patternToken.type === 'primitive-statement') {
+            if (patternIndex + 1 >= pattern.length) {
+                throw new Error('No terminator following primitive statement pattern')
+            }
+
+            const nextPatternToken = pattern[patternIndex + 1];
+
+            if (!isToken(nextPatternToken)) {
+                throw new Error('Invalid terminator following primitive statement pattern');
+            }
+
+            const [statement, tokenCount] = parsePrimitiveStatement(tokens.slice(tokenIndex), nextPatternToken);
+            if (statement === null) {
+                throw new InputError(['Invalid statement'], tokens[tokenIndex].location);
+            }
+
+            match.push(statement);
+            tokenIndex += tokenCount - 1;
+            continue;
+        }
+
         if ((patternToken.type !== undefined && token.type !== patternToken.type) || ('value' in patternToken && patternToken.value !== undefined && token.value !== patternToken.value)) {
             if (patternToken.optional) {
                 match.push(null);
@@ -746,3 +783,6 @@ function matchPattern<T extends Pattern[]>(tokens: LocalizedToken[], pattern: [.
     return [match, tokenIndex];
 }
 
+function isToken(pattern: Pattern): pattern is Extract<LocalizedToken, Pattern> {
+    return 'type' in pattern && 'value' in pattern;
+}
