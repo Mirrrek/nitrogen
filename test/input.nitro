@@ -1,28 +1,7 @@
 const String x = 'Hello, world!';           // Our first comment!
 
-u8 a = 12;
-u8 b = 34;
+i8 = rand();
 
-if (a < b) {
-    u8 c = a + b;
-} else if (a == b) {
-    u8 c = a * b;
-} else {
-    u8 c = a - b;
+u32 random(u32 min, u32 max) {
+    return min + (rand() % (max - min));
 }
-
-for (u8 i = 0; i < 10; i++) {
-    print(i);
-    if (test(i)) {
-        break;
-    }
-}
-
-while (1) {
-    print('Hello, world!');
-    break;
-}
-
-do {
-    print('Goodbye, world!');
-} while (0);

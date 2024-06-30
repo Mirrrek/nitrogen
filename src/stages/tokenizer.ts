@@ -33,6 +33,7 @@ const keywords = [
     'do',
     'for',
     'break',
+    'return',
     'const'
 ] as const;
 
