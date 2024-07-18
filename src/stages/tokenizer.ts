@@ -197,7 +197,7 @@ export default function tokenize(file: string, input: string): LocalizedToken[] 
             if (match !== null) {
                 // W-DoubleQuotes
                 if (match[0].startsWith('"') && !match[0].includes("'")) {
-                    log('WARN', 'Double quotes are cringe', { file, line, column });
+                    log('WARN', ['Double quotes are cringe'], { file, line, column });
                 }
 
                 tokens.push({ type: 'string-literal', value: match[0].slice(1, -1), location: { file, line, column } });
@@ -224,7 +224,7 @@ export default function tokenize(file: string, input: string): LocalizedToken[] 
             } else {
                 // W-Snake
                 if (buffer.split('').some((c, i) => c === '_' && i !== 0 && i !== buffer.length - 1 && /[a-z]/.test(buffer[i - 1]) && /[a-z]/.test(buffer[i + 1]))) {
-                    log('WARN', 'Snake case is cringe', { file, line, column });
+                    log('WARN', ['Snake case is cringe'], { file, line, column });
                 }
 
                 tokens.push({ type: 'identifier', value: buffer, location: { file, line, column } });

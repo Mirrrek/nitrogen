@@ -8,7 +8,7 @@ process.on('uncaughtException', (error) => {
     if (error instanceof InputError) {
         log('ERROR', error.data.message, error.data.location);
     } else {
-        log('ERROR', 'Unexpected error');
+        log('ERROR', ['Unexpected error']);
         console.error(error);
     }
 });
@@ -17,19 +17,19 @@ main();
 
 function main() {
     if (process.argv.length !== 3) {
-        log('ERROR', 'Invalid number of arguments');
+        log('ERROR', ['Invalid number of arguments']);
         return;
     }
 
     const file = process.argv[2];
 
     if (!existsSync(file)) {
-        log('ERROR', `File "${file}" not found`);
+        log('ERROR', ['File "', { value: file, bold: true }, '" not found']);
         return;
     }
 
     if (!statSync(file).isFile()) {
-        log('ERROR', `"${file}" is not a file`);
+        log('ERROR', ['"', { value: file, bold: true }, '" is not a file']);
         return;
     }
 
