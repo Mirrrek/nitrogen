@@ -1,8 +1,10 @@
 import tokenize from '@/stages/tokenizer';
 import parse from '@/stages/parser';
+import generate from '@/stages/generator';
 import { InputError } from '@/errors';
 import log from '@/log';
-import { existsSync, statSync, readFileSync } from 'fs';
+import { existsSync, statSync, readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 
 process.on('uncaughtException', (error) => {
     if (error instanceof InputError) {
@@ -16,30 +18,36 @@ process.on('uncaughtException', (error) => {
 main();
 
 function main() {
-    if (process.argv.length !== 3) {
+    if (process.argv.length !== 4) {
         log('ERROR', ['Invalid number of arguments']);
         return;
     }
 
-    const file = process.argv[2];
+    const inputFileRelative = process.argv[2];
+    const outputFileRelative = process.argv[3];
 
-    if (!existsSync(file)) {
-        log('ERROR', ['File "', { value: file, bold: true }, '" not found']);
+    const inputFile = resolve(inputFileRelative);
+    const outputFile = resolve(outputFileRelative);
+
+    if (!existsSync(inputFile)) {
+        log('ERROR', ['File "', { value: inputFileRelative, bold: true }, '" not found']);
         return;
     }
 
-    if (!statSync(file).isFile()) {
-        log('ERROR', ['"', { value: file, bold: true }, '" is not a file']);
+    if (!statSync(inputFile).isFile()) {
+        log('ERROR', ['"', { value: inputFileRelative, bold: true }, '" is not a file']);
         return;
     }
 
-    const input = readFileSync(file, 'utf8');
+    const input = readFileSync(inputFile, 'utf8');
 
-    const tokens = tokenize(file, input);
-
-    console.log(JSON.stringify(tokens));
+    const tokens = tokenize(inputFileRelative, input);
 
     const statements = parse(tokens);
 
-    console.log(JSON.stringify(statements));
+    const assembly = generate(statements);
+
+    writeFileSync(outputFile, assembly.code);
+
+    log('INFO', ['Done!']);
 }

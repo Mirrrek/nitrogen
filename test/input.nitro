@@ -1,9 +1,11 @@
-const String x = 'Hello, world!';           // Our first comment!
+i8 x;
+i8 y = 12;
+i8 z;
 
-for (u8 i = 0; i < 10; i++) {
-    if (i % 2 == 0) {
-        continue;
+for (u8 i = 0; y < 10; x++) {
+    if (z % 2 == 0) {
+        u8 w = 5;
     }
-
-    print(i);
+    u8 w = 6;
+    i32 y;
 }
