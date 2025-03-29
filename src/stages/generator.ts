@@ -27,20 +27,20 @@ export type Target = 'debug';
 
 type State = {
     stackOffset: number;
-    outputBuffer: DynamicBuffer;
+    outputBuffer: OutputBuffer;
     target: Target;
 }
 
 export default function generate(statements: Statement[], target: Target): Assembly {
     const state: State = {
         stackOffset: 0,
-        outputBuffer: new DynamicBuffer(),
+        outputBuffer: new OutputBuffer(),
         target
     }
 
     generateStatements(statements, [], state);
 
-    return { code: state.outputBuffer.buffer }
+    return { code: state.outputBuffer.evaluate() }
 }
 
 function generateStatements(statements: Statement[], inheritedVariables: Variable[], state: State): Variable[] {
@@ -76,9 +76,9 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 });
 
                 if (statement.type === 'declaration-with-assignment') {
-                    state.outputBuffer.write(Buffer.from('(\n'));
+                    state.outputBuffer.write('(\n');
                     generateExpression(statement.assignment, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(`) > STACK[${state.stackOffset}]\n`));
+                    state.outputBuffer.write(`) > STACK[${state.stackOffset}]\n`);
                 }
 
                 state.stackOffset += primitiveTypes.find((type) => type.identifier === statement.typeIdentifier)?.size ?? 0;
@@ -95,9 +95,9 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                     throw new InputError(['Cannot assign to a constant variable'], statement.location);
                 }
 
-                state.outputBuffer.write(Buffer.from('(\n'));
+                state.outputBuffer.write('(\n');
                 generateExpression(statement.assignment, [...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from(`) > STACK[${variable.offset}]\n`));
+                state.outputBuffer.write(`) > STACK[${variable.offset}]\n`);
             } break;
             case 'increment':
             case 'decrement': {
@@ -114,107 +114,112 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
 
                 // TODO: Check if variable type is number
 
-                state.outputBuffer.write(Buffer.from(`STACK[${variable.offset}]${statement.type === 'increment' ? '++' : '--'}\n`));
+                state.outputBuffer.write(`STACK[${variable.offset}]${statement.type === 'increment' ? '++' : '--'}\n`);
             } break;
             case 'function-call': {
                 throw new Error('Not implemented');
             } break;
             case 'scope': {
-                state.outputBuffer.write(Buffer.from('{\n'));
+                state.outputBuffer.write('{\n');
                 generateStatements(statement.statements, [...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from('}\n'));
+                state.outputBuffer.write('}\n');
             } break;
             case 'if': {
-                statement.blocks.forEach((block) => {
-                    state.outputBuffer.write(Buffer.from('(\n'));
+                const ifEnterMarkers: OutputBufferMarker[] = state.outputBuffer.createMarkers(statement.blocks.length);
+                const ifExitMarker = state.outputBuffer.createMarker();
+                const elseEnterMarker = state.outputBuffer.createMarker();
+
+                statement.blocks.forEach((block, i) => {
+                    state.outputBuffer.write('(\n');
                     generateExpression(block.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(') JMP IF TRUE ??\n'));
+                    ifEnterMarkers[i].use(21, (marker) => `) JMP IF TRUE ${marker.toString().padStart(6, '.')}\n`);
                 });
 
-                state.outputBuffer.write(Buffer.from('JMP ??\n'));
+                elseEnterMarker.use(11, (marker) => `JMP ${marker.toString().padStart(6, '.')}\n`);
 
-                const jumpLocations: number[] = [];
-
-                statement.blocks.map((block) => block.statements).forEach((block) => {
-                    jumpLocations.push(state.outputBuffer.length);
-                    state.outputBuffer.write(Buffer.from('{\n'));
+                statement.blocks.map((block) => block.statements).forEach((block, i) => {
+                    ifEnterMarkers[i].set();
+                    state.outputBuffer.write('{\n');
                     generateStatements(block, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('}\n'));
-                    state.outputBuffer.write(Buffer.from('JMP ??\n'));
+                    state.outputBuffer.write('}\n');
+                    ifExitMarker.use(11, (marker) => `JMP ${marker.toString().padStart(6, '.')}\n`);
                 });
 
-                const elseJumpLocation = state.outputBuffer.length;
+                elseEnterMarker.set();
 
                 if (statement.elseBlock !== null) {
-                    state.outputBuffer.write(Buffer.from('{\n'));
+                    state.outputBuffer.write('{\n');
                     generateStatements(statement.elseBlock, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('}\n'));
+                    state.outputBuffer.write('}\n');
                 }
 
-                const endJumpLocation = state.outputBuffer.length;
-
-                state.outputBuffer.write(Buffer.from(`; FILL JMPS: ${jumpLocations.join(', ')}\n`));
-                state.outputBuffer.write(Buffer.from(`; FILL JMP: ${elseJumpLocation}\n`));
-                state.outputBuffer.write(Buffer.from(`; FILL JMPS: ${new Array(statement.blocks.length).fill(endJumpLocation).join(', ')}\n`));
+                ifExitMarker.set();
             } break;
             case 'while': {
-                const startJumpLocation = state.outputBuffer.length;
+                const loopEnterMarker = state.outputBuffer.createMarker();
+                const loopExitMarker = state.outputBuffer.createMarker();
+
+                loopEnterMarker.set();
 
                 if (!statement.doWhile) {
-                    state.outputBuffer.write(Buffer.from('(\n'));
+                    state.outputBuffer.write('(\n');
                     generateExpression(statement.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(') JMP IF FALSE ??\n'));
+                    loopExitMarker.use(22, (marker) => `) JMP IF FALSE ${marker.toString().padStart(6, '.')}\n`);
                 }
 
-                state.outputBuffer.write(Buffer.from('{\n'));
+                state.outputBuffer.write('{\n');
                 generateStatements(statement.statements, [...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from('}\n'));
+                state.outputBuffer.write('}\n');
 
                 if (!statement.doWhile) {
-                    state.outputBuffer.write(Buffer.from(`JMP ${startJumpLocation}\n`));
-                    state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
+                    loopEnterMarker.use(11, (marker) => `JMP ${marker.toString().padStart(6, '.')}\n`);
+                    loopExitMarker.set();
                 } else {
-                    state.outputBuffer.write(Buffer.from('(\n'));
+                    state.outputBuffer.write('(\n');
                     generateExpression(statement.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(`) JMP IF TRUE ${startJumpLocation}\n`));
+                    loopEnterMarker.use(21, (marker) => `) JMP IF TRUE ${marker.toString().padStart(6, '.')}\n`);
                 }
             } break;
             case 'for': {
+                const actionMarker = state.outputBuffer.createMarker();
+                const conditionMarker = state.outputBuffer.createMarker();
+                const loopExitMarker = state.outputBuffer.createMarker();
+
                 const initializationVariables = [];
 
                 if (statement.initialization !== null) {
-                    state.outputBuffer.write(Buffer.from('{\n'));
+                    state.outputBuffer.write('{\n');
                     initializationVariables.push(...generateStatements([statement.initialization], [...variables, ...inheritedVariables], state));
-                    state.outputBuffer.write(Buffer.from('}\n'));
+                    state.outputBuffer.write('}\n');
                 }
 
-                state.outputBuffer.write(Buffer.from('JMP ??\n'));
+                conditionMarker.use(11, (marker) => `JMP ${marker.toString().padStart(6, '.')}\n`);
 
-                const actionJumpLocation = state.outputBuffer.length;
+                actionMarker.set();
 
                 const actionVariables = [];
 
                 if (statement.action !== null) {
-                    state.outputBuffer.write(Buffer.from('{\n'));
+                    state.outputBuffer.write('{\n');
                     actionVariables.push(...generateStatements([statement.action], [...initializationVariables, ...variables, ...inheritedVariables], state));
-                    state.outputBuffer.write(Buffer.from('}\n'));
+                    state.outputBuffer.write('}\n');
                 }
 
-                state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
+                conditionMarker.set();
 
                 if (statement.condition !== null) {
-                    state.outputBuffer.write(Buffer.from('(\n'));
+                    state.outputBuffer.write('(\n');
                     generateExpression(statement.condition, [...initializationVariables, ...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(') JMP IF FALSE ??\n'));
+                    loopExitMarker.use(22, (marker) => `) JMP IF FALSE ${marker.toString().padStart(6, '.')}\n`);
                 }
 
-                state.outputBuffer.write(Buffer.from('{\n'));
+                state.outputBuffer.write('{\n');
                 generateStatements(statement.statements, [...actionVariables, ...initializationVariables, ...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from('}\n'));
+                state.outputBuffer.write('}\n');
 
-                state.outputBuffer.write(Buffer.from(`JMP ${actionJumpLocation}\n`));
+                actionMarker.use(11, (marker) => `JMP ${marker.toString().padStart(6, '.')}\n`);
                 if (statement.condition !== null) {
-                    state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
+                    loopExitMarker.set();
                 }
             } break;
             case 'continue':
@@ -236,13 +241,13 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
     const type = expression.type;
     switch (type) {
         case 'integer-literal': {
-            state.outputBuffer.write(Buffer.from(`LITERAL INT: ${expression.value}\n`));
+            state.outputBuffer.write(`LITERAL INT: ${expression.value}\n`);
         } break;
         case 'float-literal': {
-            state.outputBuffer.write(Buffer.from(`LITERAL FLOAT: ${expression.value}\n`));
+            state.outputBuffer.write(`LITERAL FLOAT: ${expression.value}\n`);
         } break;
         case 'string-literal': {
-            state.outputBuffer.write(Buffer.from(`LITERAL STRING: ${expression.value}\n`));
+            state.outputBuffer.write(`LITERAL STRING: ${expression.value}\n`);
         } break;
         case 'variable': {
             const variable = inheritedVariables.find((variable) => variable.variableIdentifier === expression.identifier) ?? null;
@@ -251,7 +256,7 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
                 throw new InputError(['Variable ', { value: expression.identifier, bold: true }, ' is not declared'], expression.location);
             }
 
-            state.outputBuffer.write(Buffer.from(`STACK[${variable.offset}]\n`));
+            state.outputBuffer.write(`STACK[${variable.offset}]\n`);
         } break;
         case 'increment':
         case 'decrement': {
@@ -262,12 +267,12 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
                 throw new InputError(['Variable ', { value: expression.identifier, bold: true }, ' is not declared'], expression.location);
             }
 
-            state.outputBuffer.write(Buffer.from(`STACK[${variable.offset}]${expression.type === 'increment' ? '++' : '--'}\n`));
+            state.outputBuffer.write(`STACK[${variable.offset}]${expression.type === 'increment' ? '++' : '--'}\n`);
         } break;
         case 'sub-expression': {
-            state.outputBuffer.write(Buffer.from('(\n'));
+            state.outputBuffer.write('(\n');
             generateExpression(expression.expression, inheritedVariables, state);
-            state.outputBuffer.write(Buffer.from(')\n'));
+            state.outputBuffer.write(')\n');
         } break;
         case 'function-call': {
             throw new Error('Not implemented');
@@ -285,11 +290,11 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
         case 'less-than-or-equal':
         case 'greater-than':
         case 'greater-than-or-equal': {
-            state.outputBuffer.write(Buffer.from('(\n'));
+            state.outputBuffer.write('(\n');
             generateExpression(expression.left, inheritedVariables, state);
-            state.outputBuffer.write(Buffer.from(`) ${expression.type} (\n`));
+            state.outputBuffer.write(`) ${expression.type} (\n`);
             generateExpression(expression.right, inheritedVariables, state);
-            state.outputBuffer.write(Buffer.from(')\n'));
+            state.outputBuffer.write(')\n');
         } break;
         default: {
             exhaust(type);
@@ -297,31 +302,88 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
     }
 }
 
-class DynamicBuffer {
-    private readonly chunkSize = 256;
+type OutputBufferMarker = {
+    set: () => void;
+    use: (size: number, transformer: (marker: number) => (Uint8Array | number[] | string)) => void;
+}
 
-    private data: Buffer;
-    private size: number;
+class OutputBuffer {
+    private readonly chunks: (Buffer | { type: 'marker', id: string }
+        | { type: 'marker-usage', id: string, size: number, transformer: (marker: number) => (Uint8Array | number[] | string) })[];
 
     constructor() {
-        this.data = Buffer.alloc(this.chunkSize);
-        this.size = 0;
+        this.chunks = [];
     }
 
-    write(buffer: Buffer) {
-        while (this.data.length < this.size + buffer.length) {
-            this.data = Buffer.concat([this.data, Buffer.alloc(this.chunkSize)]);
+    write(...data: (Uint8Array | number[] | string)[]): void {
+        this.chunks.push(...data.map((chunk) => Buffer.from(chunk)));
+    }
+
+    createMarker(): OutputBufferMarker {
+        const id = Math.random().toString(16).slice(2);
+        let used = false;
+        return {
+            set: () => {
+                if (used) {
+                    log('ERROR', 'Internal error: Output buffer marker set more than once');
+                }
+
+                this.chunks.push({ type: 'marker', id });
+                used = true;
+            },
+            use: (size, transformer) => {
+                this.chunks.push({ type: 'marker-usage', id, size, transformer });
+            }
         }
-
-        buffer.copy(this.data, this.size, 0, buffer.length);
-        this.size += buffer.length;
     }
 
-    get buffer() {
-        return this.data.subarray(0, this.size);
+    createMarkers(count: number): OutputBufferMarker[] {
+        return new Array(count).fill(null).map(() => this.createMarker());
     }
 
-    get length() {
-        return this.size;
+    evaluate(): Buffer {
+        const markerMappings: Map<string, number> = new Map();
+
+        let outputLength = 0;
+        this.chunks.forEach((chunk, i) => {
+            if (chunk instanceof Buffer) {
+                outputLength += chunk.byteLength;
+                return;
+            }
+
+            const type = chunk.type;
+            switch (type) {
+                case 'marker': {
+                    markerMappings.set(chunk.id, outputLength);
+                    this.chunks[i] = Buffer.alloc(0);
+                    outputLength += 0;
+                } break;
+                case 'marker-usage': {
+                    outputLength += chunk.size;
+                } break;
+                default: {
+                    exhaust(type);
+                } break;
+            }
+        });
+        this.chunks.forEach((chunk, i) => {
+            if (!(chunk instanceof Buffer) && chunk.type === 'marker-usage') {
+                if (!markerMappings.has(chunk.id)) {
+                    log('ERROR', 'Internal error: Output buffer marker not set');
+                    this.chunks[i] = Buffer.alloc(0);
+                    return;
+                }
+
+                const buffer = Buffer.from(chunk.transformer(markerMappings.get(chunk.id)!));
+                if (buffer.byteLength !== chunk.size) {
+                    log('ERROR', 'Internal error: Output buffer marker usage length is invalid');
+                    this.chunks[i] = Buffer.alloc(0);
+                    return;
+                }
+                this.chunks[i] = buffer;
+            }
+        });
+
+        return Buffer.concat(this.chunks as Buffer[]);
     }
 }
