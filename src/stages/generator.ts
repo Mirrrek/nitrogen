@@ -197,11 +197,9 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
 
                 actionMarker.set();
 
-                const actionVariables = [];
-
                 if (statement.action !== null) {
                     state.outputBuffer.write('{\n');
-                    actionVariables.push(...generateStatements([statement.action], [...initializationVariables, ...variables, ...inheritedVariables], state));
+                    generateStatements([statement.action], [...initializationVariables, ...variables, ...inheritedVariables], state);
                     state.outputBuffer.write('}\n');
                 }
 
@@ -214,7 +212,7 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 }
 
                 state.outputBuffer.write('{\n');
-                generateStatements(statement.statements, [...actionVariables, ...initializationVariables, ...variables, ...inheritedVariables], state);
+                generateStatements(statement.statements, [...initializationVariables, ...variables, ...inheritedVariables], state);
                 state.outputBuffer.write('}\n');
 
                 actionMarker.use(11, (marker) => `JMP ${marker.toString().padStart(6, '.')}\n`);
