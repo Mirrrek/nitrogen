@@ -158,7 +158,7 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 state.outputBuffer.write(Buffer.from(`; FILL JMPS: ${new Array(statement.blocks.length).fill(endJumpLocation).join(', ')}\n`));
             } break;
             case 'while': {
-                const beforeByteOffset = state.outputBuffer.length;
+                const startJumpLocation = state.outputBuffer.length;
 
                 if (!statement.doWhile) {
                     state.outputBuffer.write(Buffer.from('(\n'));
@@ -171,12 +171,12 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 state.outputBuffer.write(Buffer.from('}\n'));
 
                 if (!statement.doWhile) {
-                    state.outputBuffer.write(Buffer.from(`JMP ${beforeByteOffset}\n`));
+                    state.outputBuffer.write(Buffer.from(`JMP ${startJumpLocation}\n`));
                     state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
                 } else {
                     state.outputBuffer.write(Buffer.from('(\n'));
                     generateExpression(statement.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(`) JMP IF TRUE ${beforeByteOffset}\n`));
+                    state.outputBuffer.write(Buffer.from(`) JMP IF TRUE ${startJumpLocation}\n`));
                 }
             } break;
             case 'for': {
@@ -190,7 +190,7 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
 
                 state.outputBuffer.write(Buffer.from('JMP ??\n'));
 
-                const beforeByteOffset = state.outputBuffer.length;
+                const actionJumpLocation = state.outputBuffer.length;
 
                 const actionVariables = [];
 
@@ -212,7 +212,7 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 generateStatements(statement.statements, [...actionVariables, ...initializationVariables, ...variables, ...inheritedVariables], state);
                 state.outputBuffer.write(Buffer.from('}\n'));
 
-                state.outputBuffer.write(Buffer.from(`JMP ${beforeByteOffset}\n`));
+                state.outputBuffer.write(Buffer.from(`JMP ${actionJumpLocation}\n`));
                 if (statement.condition !== null) {
                     state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
                 }
