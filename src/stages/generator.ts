@@ -76,9 +76,9 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 });
 
                 if (statement.type === 'declaration-with-assignment') {
-                    state.outputBuffer.write(Buffer.from('; EVAL EXPRESSION\n'));
+                    state.outputBuffer.write(Buffer.from('(\n'));
                     generateExpression(statement.assignment, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(`> STACK[${state.stackOffset}]\n`));
+                    state.outputBuffer.write(Buffer.from(`) > STACK[${state.stackOffset}]\n`));
                 }
 
                 state.stackOffset += primitiveTypes.find((type) => type.identifier === statement.typeIdentifier)?.size ?? 0;
@@ -95,9 +95,9 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                     throw new InputError(['Cannot assign to a constant variable'], statement.location);
                 }
 
-                state.outputBuffer.write(Buffer.from('; EVAL EXPRESSION\n'));
+                state.outputBuffer.write(Buffer.from('(\n'));
                 generateExpression(statement.assignment, [...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from(`> STACK[${variable.offset}]\n`));
+                state.outputBuffer.write(Buffer.from(`) > STACK[${variable.offset}]\n`));
             } break;
             case 'increment':
             case 'decrement': {
@@ -120,102 +120,96 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 throw new Error('Not implemented');
             } break;
             case 'scope': {
-                state.outputBuffer.write(Buffer.from('; BEGIN SCOPE\n'));
+                state.outputBuffer.write(Buffer.from('{\n'));
                 generateStatements(statement.statements, [...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from('; END SCOPE\n'));
+                state.outputBuffer.write(Buffer.from('}\n'));
             } break;
             case 'if': {
                 statement.blocks.forEach((block) => {
-                    state.outputBuffer.write(Buffer.from('; BEGIN IF COND\n'));
-                    state.outputBuffer.write(Buffer.from('; EVAL EXPRESSION\n'));
+                    state.outputBuffer.write(Buffer.from('(\n'));
                     generateExpression(block.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('JMP IF TRUE ??\n'));
-                    state.outputBuffer.write(Buffer.from('; END IF COND\n'));
+                    state.outputBuffer.write(Buffer.from(') JMP IF TRUE ??\n'));
                 });
 
-                state.outputBuffer.write(Buffer.from('; BEGIN ELSE COND\n'));
                 state.outputBuffer.write(Buffer.from('JMP ??\n'));
-                state.outputBuffer.write(Buffer.from('; END ELSE COND\n'));
 
                 const jumpLocations: number[] = [];
 
                 statement.blocks.map((block) => block.statements).forEach((block) => {
                     jumpLocations.push(state.outputBuffer.length);
-                    state.outputBuffer.write(Buffer.from('; BEGIN IF BLOCK\n'));
+                    state.outputBuffer.write(Buffer.from('{\n'));
                     generateStatements(block, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('; END IF BLOCK\n'));
+                    state.outputBuffer.write(Buffer.from('}\n'));
+                    state.outputBuffer.write(Buffer.from('JMP ??\n'));
                 });
 
                 const elseJumpLocation = state.outputBuffer.length;
 
                 if (statement.elseBlock !== null) {
-                    state.outputBuffer.write(Buffer.from('; BEGIN ELSE BLOCK\n'));
+                    state.outputBuffer.write(Buffer.from('{\n'));
                     generateStatements(statement.elseBlock, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('; END ELSE BLOCK\n'));
+                    state.outputBuffer.write(Buffer.from('}\n'));
                 }
 
-                state.outputBuffer.write(Buffer.from(`-> FILL IF BLOCK JMP: ${jumpLocations.join(', ')}\n`));
-                state.outputBuffer.write(Buffer.from(`-> FILL ELSE BLOCK JMP: ${elseJumpLocation}\n`));
+                const endJumpLocation = state.outputBuffer.length;
+
+                state.outputBuffer.write(Buffer.from(`; FILL JMPS: ${jumpLocations.join(', ')}\n`));
+                state.outputBuffer.write(Buffer.from(`; FILL JMP: ${elseJumpLocation}\n`));
+                state.outputBuffer.write(Buffer.from(`; FILL JMPS: ${new Array(statement.blocks.length).fill(endJumpLocation).join(', ')}\n`));
             } break;
             case 'while': {
                 const beforeByteOffset = state.outputBuffer.length;
 
                 if (!statement.doWhile) {
-                    state.outputBuffer.write(Buffer.from('; BEGIN WHILE COND\n'));
-                    state.outputBuffer.write(Buffer.from('; EVAL EXPRESSION\n'));
+                    state.outputBuffer.write(Buffer.from('(\n'));
                     generateExpression(statement.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('JMP IF FALSE ??\n'));
-                    state.outputBuffer.write(Buffer.from('; END WHILE COND\n'));
+                    state.outputBuffer.write(Buffer.from(') JMP IF FALSE ??\n'));
                 }
 
-                state.outputBuffer.write(Buffer.from('; BEGIN WHILE BLOCK\n'));
+                state.outputBuffer.write(Buffer.from('{\n'));
                 generateStatements(statement.statements, [...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from('; END WHILE BLOCK\n'));
+                state.outputBuffer.write(Buffer.from('}\n'));
 
                 if (!statement.doWhile) {
                     state.outputBuffer.write(Buffer.from(`JMP ${beforeByteOffset}\n`));
-                    state.outputBuffer.write(Buffer.from(`-> FILL WHILE JMP: ${state.outputBuffer.length}\n`));
+                    state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
                 } else {
-                    state.outputBuffer.write(Buffer.from('; BEGIN WHILE COND\n'));
-                    state.outputBuffer.write(Buffer.from('; EVAL EXPRESSION\n'));
+                    state.outputBuffer.write(Buffer.from('(\n'));
                     generateExpression(statement.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from(`JMP IF TRUE ${beforeByteOffset}\n`));
-                    state.outputBuffer.write(Buffer.from('; END WHILE COND\n'));
+                    state.outputBuffer.write(Buffer.from(`) JMP IF TRUE ${beforeByteOffset}\n`));
                 }
             } break;
             case 'for': {
                 if (statement.initialization !== null) {
                     // TODO: Initialization must be in the same scope as the for loop, gl with that
 
-                    state.outputBuffer.write(Buffer.from('; BEGIN FOR INIT\n'));
+                    state.outputBuffer.write(Buffer.from('{\n'));
                     generateStatements([statement.initialization], [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('; END FOR INIT\n'));
+                    state.outputBuffer.write(Buffer.from('}\n'));
                 }
 
                 const beforeByteOffset = state.outputBuffer.length;
 
                 if (statement.condition !== null) {
-                    state.outputBuffer.write(Buffer.from('; BEGIN FOR COND\n'));
-                    state.outputBuffer.write(Buffer.from('; EVAL EXPRESSION\n'));
+                    state.outputBuffer.write(Buffer.from('(\n'));
                     generateExpression(statement.condition, [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('JMP IF FALSE ??\n'));
-                    state.outputBuffer.write(Buffer.from('; END FOR COND\n'));
+                    state.outputBuffer.write(Buffer.from(') JMP IF FALSE ??\n'));
                 }
 
-                state.outputBuffer.write(Buffer.from('; BEGIN FOR BLOCK\n'));
+                state.outputBuffer.write(Buffer.from('{\n'));
                 generateStatements(statement.statements, [...variables, ...inheritedVariables], state);
-                state.outputBuffer.write(Buffer.from('; END FOR BLOCK\n'));
+                state.outputBuffer.write(Buffer.from('}\n'));
 
                 if (statement.action !== null) {
                     // TODO: Again, must be in the same scope as the for block
 
-                    state.outputBuffer.write(Buffer.from('; BEGIN FOR ACTION\n'));
+                    state.outputBuffer.write(Buffer.from('{\n'));
                     generateStatements([statement.action], [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('; END FOR ACTION\n'));
+                    state.outputBuffer.write(Buffer.from('}\n'));
                 }
 
                 state.outputBuffer.write(Buffer.from(`JMP ${beforeByteOffset}\n`));
-                state.outputBuffer.write(Buffer.from(`-> FILL FOR JMP: ${state.outputBuffer.length}\n`));
+                state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
             } break;
             case 'continue':
             case 'break':
@@ -236,13 +230,13 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
     const type = expression.type;
     switch (type) {
         case 'integer-literal': {
-            state.outputBuffer.write(Buffer.from(`< LITERAL INT ${expression.value}\n`));
+            state.outputBuffer.write(Buffer.from(`LITERAL INT: ${expression.value}\n`));
         } break;
         case 'float-literal': {
-            state.outputBuffer.write(Buffer.from(`< LITERAL FLOAT ${expression.value}\n`));
+            state.outputBuffer.write(Buffer.from(`LITERAL FLOAT: ${expression.value}\n`));
         } break;
         case 'string-literal': {
-            state.outputBuffer.write(Buffer.from(`< LITERAL STRING ${expression.value}\n`));
+            state.outputBuffer.write(Buffer.from(`LITERAL STRING: ${expression.value}\n`));
         } break;
         case 'variable': {
             const variable = inheritedVariables.find((variable) => variable.variableIdentifier === expression.identifier) ?? null;
@@ -251,7 +245,7 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
                 throw new InputError(['Variable ', { value: expression.identifier, bold: true }, ' is not declared'], expression.location);
             }
 
-            state.outputBuffer.write(Buffer.from(`< STACK[${variable.offset}]\n`));
+            state.outputBuffer.write(Buffer.from(`STACK[${variable.offset}]\n`));
         } break;
         case 'increment':
         case 'decrement': {
@@ -262,11 +256,12 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
                 throw new InputError(['Variable ', { value: expression.identifier, bold: true }, ' is not declared'], expression.location);
             }
 
-            state.outputBuffer.write(Buffer.from(`< STACK[${variable.offset}]${expression.type === 'increment' ? '++' : '--'}\n`));
+            state.outputBuffer.write(Buffer.from(`STACK[${variable.offset}]${expression.type === 'increment' ? '++' : '--'}\n`));
         } break;
         case 'sub-expression': {
-            state.outputBuffer.write(Buffer.from('; EVAL SUBEXPRESSION\n'));
+            state.outputBuffer.write(Buffer.from('(\n'));
             generateExpression(expression.expression, inheritedVariables, state);
+            state.outputBuffer.write(Buffer.from(')\n'));
         } break;
         case 'function-call': {
             throw new Error('Not implemented');
@@ -284,11 +279,11 @@ function generateExpression(expression: Expression, inheritedVariables: Variable
         case 'less-than-or-equal':
         case 'greater-than':
         case 'greater-than-or-equal': {
-            state.outputBuffer.write(Buffer.from('; EVAL A\n'));
+            state.outputBuffer.write(Buffer.from('(\n'));
             generateExpression(expression.left, inheritedVariables, state);
-            state.outputBuffer.write(Buffer.from('; EVAL B\n'));
+            state.outputBuffer.write(Buffer.from(`) ${expression.type} (\n`));
             generateExpression(expression.right, inheritedVariables, state);
-            state.outputBuffer.write(Buffer.from(`< A {${expression.type}} B\n`));
+            state.outputBuffer.write(Buffer.from(')\n'));
         } break;
         default: {
             exhaust(type);
