@@ -180,36 +180,42 @@ function generateStatements(statements: Statement[], inheritedVariables: Variabl
                 }
             } break;
             case 'for': {
-                if (statement.initialization !== null) {
-                    // TODO: Initialization must be in the same scope as the for loop, gl with that
+                const initializationVariables = [];
 
+                if (statement.initialization !== null) {
                     state.outputBuffer.write(Buffer.from('{\n'));
-                    generateStatements([statement.initialization], [...variables, ...inheritedVariables], state);
+                    initializationVariables.push(...generateStatements([statement.initialization], [...variables, ...inheritedVariables], state));
                     state.outputBuffer.write(Buffer.from('}\n'));
                 }
 
+                state.outputBuffer.write(Buffer.from('JMP ??\n'));
+
                 const beforeByteOffset = state.outputBuffer.length;
+
+                const actionVariables = [];
+
+                if (statement.action !== null) {
+                    state.outputBuffer.write(Buffer.from('{\n'));
+                    actionVariables.push(...generateStatements([statement.action], [...initializationVariables, ...variables, ...inheritedVariables], state));
+                    state.outputBuffer.write(Buffer.from('}\n'));
+                }
+
+                state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
 
                 if (statement.condition !== null) {
                     state.outputBuffer.write(Buffer.from('(\n'));
-                    generateExpression(statement.condition, [...variables, ...inheritedVariables], state);
+                    generateExpression(statement.condition, [...initializationVariables, ...variables, ...inheritedVariables], state);
                     state.outputBuffer.write(Buffer.from(') JMP IF FALSE ??\n'));
                 }
 
                 state.outputBuffer.write(Buffer.from('{\n'));
-                generateStatements(statement.statements, [...variables, ...inheritedVariables], state);
+                generateStatements(statement.statements, [...actionVariables, ...initializationVariables, ...variables, ...inheritedVariables], state);
                 state.outputBuffer.write(Buffer.from('}\n'));
 
-                if (statement.action !== null) {
-                    // TODO: Again, must be in the same scope as the for block
-
-                    state.outputBuffer.write(Buffer.from('{\n'));
-                    generateStatements([statement.action], [...variables, ...inheritedVariables], state);
-                    state.outputBuffer.write(Buffer.from('}\n'));
-                }
-
                 state.outputBuffer.write(Buffer.from(`JMP ${beforeByteOffset}\n`));
-                state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
+                if (statement.condition !== null) {
+                    state.outputBuffer.write(Buffer.from(`; FILL JMP: ${state.outputBuffer.length}\n`));
+                }
             } break;
             case 'continue':
             case 'break':
