@@ -2,10 +2,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "command": "npm run dev",
-            "name": "Dev Launch",
+            "name": "Launch",
+            "type": "node",
             "request": "launch",
-            "type": "node-terminal"
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}\\dist\\nitro.js",
+            "args": [
+                "input.nitro",
+                "output.bin"
+            ],
+            "cwd": "${workspaceFolder}\\test",
+            "outFiles": [
+                "${workspaceFolder}\\dist\\**\\*.js"
+            ],
+            "outputCapture": "std"
         }
     ]
 }

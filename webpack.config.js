@@ -1,25 +1,16 @@
 const path = require('path');
-const { exec } = require('child_process');
 
 module.exports = (env, argv) => {
     const isDevelopment = argv.mode === 'development';
 
     return {
-        mode: isDevelopment ? 'development' : 'production',
-        devtool: isDevelopment ? 'inline-source-map' : undefined,
         target: 'node',
-        entry: {
-            main: './src/index.ts'
-        },
+        entry: path.resolve(__dirname, 'src/index.ts'),
+        devtool: isDevelopment ? 'inline-source-map' : false,
         output: {
-            path: path.resolve(__dirname, './dist'),
-            filename: 'nitro.js'
-        },
-        resolve: {
-            extensions: ['.ts', '.js'],
-            alias: {
-                '@': path.resolve(__dirname, 'src')
-            }
+            filename: 'nitro.js',
+            path: path.resolve(__dirname, 'dist'),
+            clean: true
         },
         module: {
             rules: [
@@ -30,26 +21,11 @@ module.exports = (env, argv) => {
                 }
             ]
         },
-        plugins: [{
-            apply: (compiler) => {
-                if (!isDevelopment) return;
-                compiler.hooks.afterEmit.tap('AfterEmitPlugin', (compilation) => {
-                    exec('npm run start', (err, stdout, stderr) => {
-                        if (stdout) process.stdout.write(stdout);
-                        if (stderr) process.stderr.write(stderr);
-                    });
-                });
+        resolve: {
+            extensions: ['.ts', '.js'],
+            alias: {
+                '@': path.resolve(__dirname, 'src')
             }
-        }, {
-            apply: (compiler) => {
-                if (!isDevelopment) return;
-                compiler.hooks.afterCompile.tap('AfterCompilePlugin', (compilation) => {
-                    compilation.fileDependencies.add(path.resolve(__dirname, 'test', 'input.nitro'));
-                });
-            }
-        }],
-        watchOptions: {
-            ignored: /node_modules/
         }
     }
 }
