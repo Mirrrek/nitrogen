@@ -45,7 +45,7 @@ function main() {
 
     const statements = parse(tokens);
 
-    const assembly = generate(statements);
+    const assembly = generate(statements, 'debug');
 
     writeFileSync(outputFile, assembly.code);
 
